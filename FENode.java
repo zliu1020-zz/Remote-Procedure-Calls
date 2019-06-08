@@ -26,12 +26,13 @@ public class FENode {
 
 	// launch Thrift server
 	BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler());
-	TServerSocket socket = new TServerSocket(portFE);
-	TSimpleServer.Args sargs = new TSimpleServer.Args(socket);
+	TNonblockingServerSocket socket = new TNonblockingServerSocket(portFE);
+	THsHaServer.Args sargs = new THsHaServer.Args(socket);
 	sargs.protocolFactory(new TBinaryProtocol.Factory());
 	sargs.transportFactory(new TFramedTransport.Factory());
 	sargs.processorFactory(new TProcessorFactory(processor));
-	TSimpleServer server = new TSimpleServer(sargs);
+    sargs.maxWorkerThreads(20); //???
+	THsHaServer server = new THsHaServer(sargs);
 	server.serve();
     }
 }
