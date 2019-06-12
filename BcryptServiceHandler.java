@@ -31,7 +31,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 				int numThreads = Math.min(size, 4);
 				int chunkSize = size / numThreads;
 				CountDownLatch latch = new CountDownLatch(numThreads);
-				if (size > 1) {
+				if (false) {
 					for (int i = 0; i < numThreads; i++) {
 						int startInd = i * chunkSize;
 						int endInd = i == numThreads - 1 ? size : (i + 1) * chunkSize;
@@ -63,15 +63,19 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 						System.out.println("Size: " + NodeManager.getMapSize());
 						List<String> ret = be.getClient().hashPassword(password, logRounds);
 						return ret;
-					} catch (org.apache.thrift.transport.TTransportException Exception) {
+					} catch (org.apache.thrift.transport.TTransportException e) {
 						System.out.println("Hash Transport Exception port#" + be.port);
-						nodeList.remove(be);
-						if (nodeList.size() == 0) {
-							break;
-						} else {
-							updateCurrentBeNodeIndex();
-							be = nodeList.get(nodeIndex);
-						}
+//						e.printStackTrace();
+						break;
+////						System.out.print("port# " + be.port + e.getMessage());
+//						System.out.println("Hash Transport Exception port#" + be.port);
+//						nodeList.remove(be);
+//						if (nodeList.size() == 0) {
+//							break;
+//						} else {
+//							updateCurrentBeNodeIndex();
+//							be = nodeList.get(nodeIndex);
+//						}
 						
 					}
 				}
@@ -84,7 +88,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 				int numThreads = Math.min(size, 4);
 				int chunkSize = size / numThreads;
 				CountDownLatch latch = new CountDownLatch(numThreads);
-				if (size > 1) {
+				if (false) {
 					for (int i = 0; i < numThreads; i++) {
 						int startInd = i * chunkSize;
 						int endInd = i == numThreads - 1 ? size : (i + 1) * chunkSize;
@@ -136,7 +140,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 				int numThreads = Math.min(size, 4);
 				int chunkSize = size / numThreads;
 				CountDownLatch latch = new CountDownLatch(numThreads);
-				if (size > 1) {
+				if (false) {
 					for (int i = 0; i < numThreads; i++) {
 						int startInd = i * chunkSize;
 						int endInd = i == numThreads - 1 ? size : (i + 1) * chunkSize;
@@ -168,16 +172,19 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 						System.out.println("Size: " + NodeManager.getMapSize());
 						List<Boolean> ret = be.getClient().checkPassword(password, hash);
 						return ret;
-					} catch (org.apache.thrift.transport.TTransportException Exception) {
+					} catch (org.apache.thrift.transport.TTransportException e) {
 						System.out.println("Check Transport Exception port# " + be.port);
-						nodeList.remove(be);
-						if (nodeList.size() == 0) {
-							break;
-						} else {
-							updateCurrentBeNodeIndex();
-							be = nodeList.get(nodeIndex);
-						}
-						
+//						e.printStackTrace();
+////						System.out.print("port# " + be.port + e.getMessage());
+//						System.out.println("Check Transport Exception port# " + be.port);
+//						nodeList.remove(be);
+//						if (nodeList.size() == 0) {
+//							break;
+//						} else {
+//							updateCurrentBeNodeIndex();
+//							be = nodeList.get(nodeIndex);
+//						}
+						break;
 					}
 				}
 			}
@@ -189,7 +196,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 				int numThreads = Math.min(size, 4);
 				int chunkSize = size / numThreads;
 				CountDownLatch latch = new CountDownLatch(numThreads);
-				if (size > 1) {
+				if (false) {
 					for (int i = 0; i < numThreads; i++) {
 						int startInd = i * chunkSize;
 						int endInd = i == numThreads - 1 ? size : (i + 1) * chunkSize;

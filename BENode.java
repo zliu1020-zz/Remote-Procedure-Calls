@@ -39,8 +39,6 @@ public class BENode {
 	int portBE = Integer.parseInt(args[2]);
 	log.info("Launching BE node on port " + portBE + " at host " + getHostName());
 	
-//	Thread thread = new Thread(new ConnectionThread(hostFE, hostBE, portFE, portBE));		
-//    thread.start();
     
 	TSocket sock = new TSocket(hostFE, portFE);
     TTransport transport = new TFramedTransport(sock);    
@@ -53,6 +51,9 @@ public class BENode {
     }catch(Exception e) {
     	e.printStackTrace();
     }
+    
+	Thread thread = new Thread(new ConnectionThread(hostFE, hostBE, portFE, portBE));		
+    thread.start();
 	
 	// Connect to FE node
 //	TSocket sock = new TSocket(hostFE, portFE);
@@ -86,15 +87,15 @@ public class BENode {
 //    TThreadPoolServer server = new TThreadPoolServer(sargs);
 //    server.serve();
 	
-	BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
-	TNonblockingServerSocket socket = new TNonblockingServerSocket(portBE);
-	THsHaServer.Args sargs = new THsHaServer.Args(socket);
-	sargs.protocolFactory(new TBinaryProtocol.Factory());
-	sargs.transportFactory(new TFramedTransport.Factory());
-	sargs.processorFactory(new TProcessorFactory(processor));
-	//sargs.maxWorkerThreads(64);
-	THsHaServer server = new THsHaServer(sargs);
-	server.serve();
+//	BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
+//	TNonblockingServerSocket socket = new TNonblockingServerSocket(portBE);
+//	THsHaServer.Args sargs = new THsHaServer.Args(socket);
+//	sargs.protocolFactory(new TBinaryProtocol.Factory());
+//	sargs.transportFactory(new TFramedTransport.Factory());
+//	sargs.processorFactory(new TProcessorFactory(processor));
+//	//sargs.maxWorkerThreads(64);
+//	THsHaServer server = new THsHaServer(sargs);
+//	server.serve();
 	
     }
 
@@ -124,6 +125,16 @@ public class BENode {
 	    public void run(){
 			// contact to the FE note on startup
 	       	try {
+	       		BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
+	       		TNonblockingServerSocket socket = new TNonblockingServerSocket(portBE);
+	       		THsHaServer.Args sargs = new THsHaServer.Args(socket);
+	       		sargs.protocolFactory(new TBinaryProtocol.Factory());
+	       		sargs.transportFactory(new TFramedTransport.Factory());
+	       		sargs.processorFactory(new TProcessorFactory(processor));
+	       		//sargs.maxWorkerThreads(64);
+	       		THsHaServer server = new THsHaServer(sargs);
+	       		server.serve();
+	       		
 //				TSocket sock = new TSocket(hostFE, portFE);
 //			    TTransport transport = new TFramedTransport(sock);    
 //			    TProtocol protocol = new TBinaryProtocol(transport);  
@@ -157,14 +168,23 @@ public class BENode {
 	       	try {
 				Thread.sleep(1 * 1000);
 
-				TSocket sock = new TSocket(hostFE, portFE);
-			    TTransport transport = new TFramedTransport(sock);    
-			    TProtocol protocol = new TBinaryProtocol(transport);  
-			    client = new BcryptService.Client(protocol);
+//				TSocket sock = new TSocket(hostFE, portFE);
+//			    TTransport transport = new TFramedTransport(sock);    
+//			    TProtocol protocol = new TBinaryProtocol(transport);  
+//			    client = new BcryptService.Client(protocol);
+				BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
+				TNonblockingServerSocket socket = new TNonblockingServerSocket(portBE);
+				THsHaServer.Args sargs = new THsHaServer.Args(socket);
+				sargs.protocolFactory(new TBinaryProtocol.Factory());
+				sargs.transportFactory(new TFramedTransport.Factory());
+				sargs.processorFactory(new TProcessorFactory(processor));
+				//sargs.maxWorkerThreads(64);
+				THsHaServer server = new THsHaServer(sargs);
+				server.serve();
 
-			    transport.open();			    
-//		    	client.newConnection(hostBE, (short)portBE);
-			    client.storeBeNode(hostBE, portBE);
+//			    transport.open();			    
+////		    	client.newConnection(hostBE, (short)portBE);
+//			    client.storeBeNode(hostBE, portBE);
 			}
 			catch (Exception x) {
 			    establishNewConnection();
