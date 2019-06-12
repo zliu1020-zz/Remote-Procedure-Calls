@@ -64,7 +64,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 						List<String> ret = be.getClient().hashPassword(password, logRounds);
 						return ret;
 					} catch (org.apache.thrift.transport.TTransportException Exception) {
-						System.out.println("Hash Transport Exception");
+						System.out.println("Hash Transport Exception port#" + be.port);
 						nodeList.remove(be);
 						if (nodeList.size() == 0) {
 							break;
@@ -169,7 +169,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 						List<Boolean> ret = be.getClient().checkPassword(password, hash);
 						return ret;
 					} catch (org.apache.thrift.transport.TTransportException Exception) {
-						System.out.println("Check Transport Exception");
+						System.out.println("Check Transport Exception port# " + be.port);
 						nodeList.remove(be);
 						if (nodeList.size() == 0) {
 							break;

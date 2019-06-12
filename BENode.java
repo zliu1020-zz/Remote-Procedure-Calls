@@ -39,8 +39,20 @@ public class BENode {
 	int portBE = Integer.parseInt(args[2]);
 	log.info("Launching BE node on port " + portBE + " at host " + getHostName());
 	
-	Thread thread = new Thread(new ConnectionThread(hostFE, hostBE, portFE, portBE));		
-    thread.start();
+//	Thread thread = new Thread(new ConnectionThread(hostFE, hostBE, portFE, portBE));		
+//    thread.start();
+    
+	TSocket sock = new TSocket(hostFE, portFE);
+    TTransport transport = new TFramedTransport(sock);    
+    TProtocol protocol = new TBinaryProtocol(transport);  
+    BcryptService.Client client = new BcryptService.Client(protocol);
+    try {
+        transport.open();			    
+        client.storeBeNode(hostBE, portBE);
+        transport.close();
+    }catch(Exception e) {
+    	e.printStackTrace();
+    }
 	
 	// Connect to FE node
 //	TSocket sock = new TSocket(hostFE, portFE);
@@ -75,8 +87,7 @@ public class BENode {
 //    server.serve();
 	
 	BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
-	TNonblockingServerSocket socket = new TNonblockingServerSocket(portFE);
-//	TServerSocket socket = new TServerSocket(portBE);
+	TNonblockingServerSocket socket = new TNonblockingServerSocket(portBE);
 	THsHaServer.Args sargs = new THsHaServer.Args(socket);
 	sargs.protocolFactory(new TBinaryProtocol.Factory());
 	sargs.transportFactory(new TFramedTransport.Factory());
@@ -113,14 +124,12 @@ public class BENode {
 	    public void run(){
 			// contact to the FE note on startup
 	       	try {
-				TSocket sock = new TSocket(hostFE, portFE);
-			    TTransport transport = new TFramedTransport(sock);    
-			    TProtocol protocol = new TBinaryProtocol(transport);  
-			    client = new BcryptService.Client(protocol);
-
-			    transport.open();			    
-//		    	client.newConnection(hostBE, (short)portBE);
-			    client.storeBeNode(hostBE, portBE);
+//				TSocket sock = new TSocket(hostFE, portFE);
+//			    TTransport transport = new TFramedTransport(sock);    
+//			    TProtocol protocol = new TBinaryProtocol(transport);  
+//			    client = new BcryptService.Client(protocol);
+//			    transport.open();			    
+//			    client.storeBeNode(hostBE, portBE);
 
 			    while(true) {
 			    	heartbeat();
