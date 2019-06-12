@@ -66,6 +66,8 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 					} catch (org.apache.thrift.transport.TTransportException e) {
 						System.out.println("Hash Transport Exception port#" + be.port);
 //						e.printStackTrace();
+						nodeList.remove(be);
+						updateCurrentBeNodeIndex();
 						break;
 ////						System.out.print("port# " + be.port + e.getMessage());
 //						System.out.println("Hash Transport Exception port#" + be.port);
@@ -174,6 +176,8 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 						return ret;
 					} catch (org.apache.thrift.transport.TTransportException e) {
 						System.out.println("Check Transport Exception port# " + be.port);
+						nodeList.remove(be);
+						updateCurrentBeNodeIndex();
 //						e.printStackTrace();
 ////						System.out.print("port# " + be.port + e.getMessage());
 //						System.out.println("Check Transport Exception port# " + be.port);
