@@ -17,6 +17,7 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransportFactory;
+import org.apache.thrift.server.TThreadPoolServer;
 
 public class BENode {
     static Logger log;
@@ -38,39 +39,51 @@ public class BENode {
 	int portBE = Integer.parseInt(args[2]);
 	log.info("Launching BE node on port " + portBE + " at host " + getHostName());
 	
-	// Connect to FE node
-	TSocket sock = new TSocket(hostFE, portFE);
-	TTransport transport = new TFramedTransport(sock);
-	TProtocol protocol = new TBinaryProtocol(transport);
-	BcryptService.Client client = new BcryptService.Client(protocol);
-	try {
-		transport.open();
-		client.storeBeNode(hostBE, portBE);
-		transport.close();
-	} catch (Exception e) {
-		e.printStackTrace();
-	}
-	// launch Thrift server
-	BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
-	TServerSocket socket = new TServerSocket(portBE);
-	TSimpleServer.Args sargs = new TSimpleServer.Args(socket);
-	sargs.protocolFactory(new TBinaryProtocol.Factory());
-	sargs.transportFactory(new TFramedTransport.Factory());
-	sargs.processorFactory(new TProcessorFactory(processor));
-	//sargs.maxWorkerThreads(64);
-	TSimpleServer server = new TSimpleServer(sargs);
-	server.serve();
+	Thread thread = new Thread(new ConnectionThread(hostFE, hostBE, portFE, portBE));		
+    thread.start();
 	
+	// Connect to FE node
+//	TSocket sock = new TSocket(hostFE, portFE);
+//	TTransport transport = new TFramedTransport(sock);
+//	TProtocol protocol = new TBinaryProtocol(transport);
+//	BcryptService.Client client = new BcryptService.Client(protocol);
+//	try {
+//		transport.open();
+//		client.storeBeNode(hostBE, portBE);
+//		transport.close();
+//	} catch (Exception e) {
+//		e.printStackTrace();
+//	}
+	// launch Thrift server
 //	BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
-//	TNonblockingServerSocket socket = new TNonblockingServerSocket(portFE);
-////	TServerSocket socket = new TServerSocket(portBE);
-//	THsHaServer.Args sargs = new THsHaServer.Args(socket);
+//	TServerSocket socket = new TServerSocket(portBE);
+//	TSimpleServer.Args sargs = new TSimpleServer.Args(socket);
 //	sargs.protocolFactory(new TBinaryProtocol.Factory());
 //	sargs.transportFactory(new TFramedTransport.Factory());
 //	sargs.processorFactory(new TProcessorFactory(processor));
 //	//sargs.maxWorkerThreads(64);
-//	THsHaServer server = new THsHaServer(sargs);
+//	TSimpleServer server = new TSimpleServer(sargs);
 //	server.serve();
+	
+//	BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
+//	TServerSocket socket = new TServerSocket(portBE);
+//    TThreadPoolServer.Args sargs = new TThreadPoolServer.Args(socket);
+//    sargs.protocolFactory(new TBinaryProtocol.Factory());
+//    sargs.transportFactory(new TFramedTransport.Factory());
+//    sargs.processorFactory(new TProcessorFactory(processor));
+//    TThreadPoolServer server = new TThreadPoolServer(sargs);
+//    server.serve();
+	
+	BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
+	TNonblockingServerSocket socket = new TNonblockingServerSocket(portFE);
+//	TServerSocket socket = new TServerSocket(portBE);
+	THsHaServer.Args sargs = new THsHaServer.Args(socket);
+	sargs.protocolFactory(new TBinaryProtocol.Factory());
+	sargs.transportFactory(new TFramedTransport.Factory());
+	sargs.processorFactory(new TProcessorFactory(processor));
+	//sargs.maxWorkerThreads(64);
+	THsHaServer server = new THsHaServer(sargs);
+	server.serve();
 	
     }
 
@@ -82,4 +95,71 @@ public class BENode {
 	    return "localhost";
 	}
     }
+    
+    static class ConnectionThread implements Runnable {
+    	private static String hostFE;
+    	private static String hostBE;
+    	private static int portFE;
+    	private static int portBE;
+    	private static BcryptService.Client client;
+
+    	public ConnectionThread (String hostFE, String hostBE, int portFE, int portBE) {
+    		this.hostFE = hostFE;
+    		this.hostBE = hostBE;
+    		this.portFE = portFE;
+    		this.portBE = portBE;
+    	}
+
+	    public void run(){
+			// contact to the FE note on startup
+	       	try {
+				TSocket sock = new TSocket(hostFE, portFE);
+			    TTransport transport = new TFramedTransport(sock);    
+			    TProtocol protocol = new TBinaryProtocol(transport);  
+			    client = new BcryptService.Client(protocol);
+
+			    transport.open();			    
+//		    	client.newConnection(hostBE, (short)portBE);
+			    client.storeBeNode(hostBE, portBE);
+
+			    while(true) {
+			    	heartbeat();
+				}
+			}
+			catch (Exception x) {
+			    x.printStackTrace();
+			} 
+	    }
+
+	    private void heartbeat() {
+	    	try {
+				// Let the thread sleep for a while.
+				Thread.sleep(5 * 1000);
+		    	client.ping();
+	    	}
+	    	catch (Exception e)
+	    	{
+	   			establishNewConnection();
+	    	}
+	    }
+
+	    private void establishNewConnection() {
+	    	// contact to the FE note on startup
+	       	try {
+				Thread.sleep(1 * 1000);
+
+				TSocket sock = new TSocket(hostFE, portFE);
+			    TTransport transport = new TFramedTransport(sock);    
+			    TProtocol protocol = new TBinaryProtocol(transport);  
+			    client = new BcryptService.Client(protocol);
+
+			    transport.open();			    
+//		    	client.newConnection(hostBE, (short)portBE);
+			    client.storeBeNode(hostBE, portBE);
+			}
+			catch (Exception x) {
+			    establishNewConnection();
+			} 
+	    }
+	}
 }

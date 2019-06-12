@@ -25,11 +25,11 @@ public class NodeManager {
 		if (nodeList.size() == 0)
 			return null;
 		
-		RoundRobin it = new RoundRobin<Node>(nodeList);
-		Node node = (Node) it.iterator().next();
+//		RoundRobin it = new RoundRobin<Node>(nodeList);
+//		Node node = (Node) it.iterator().next();
 		
-		System.out.println("getBeNode port: " + node.port);
-		return node;
+//		System.out.println("getBeNode port: " + node.port);
+		return null;
 
 		// find an idle BE node
 //		for (Node node : nodeMap.values()) {

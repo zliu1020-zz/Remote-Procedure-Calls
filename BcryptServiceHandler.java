@@ -225,6 +225,10 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 		// }
 	}
 	
+	public void ping() {
+		
+	}
+	
 	
 
 //	public List<Boolean> checkPassword(List<String> password, List<String> hash)
