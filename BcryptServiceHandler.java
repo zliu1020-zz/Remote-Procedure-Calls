@@ -21,11 +21,17 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 
 	public List<String> hashPassword(List<String> password, short logRounds)
 			throws IllegalArgument, org.apache.thrift.TException {
+                
+        if(password == null || password.size() == 0){
+            throw new IllegalArgument("Password list cannot be null nor empty.");
+        }  
+    
+        if(logRounds < 4 || logRounds > 16){
+            throw new IllegalArgument("Logrounds cannot be null nor out of range. Expected range is 4 - 16.");
+        }  
+                
 		String[] res = new String[password.size()];
 		if (isBeNode) {
-			// Node be = NodeManager.getBeNode();
-			// System.out.println("Current BE Node:" + be.hostname + be.port);
-			// return hashPasswordImpl(password, logRounds);
 			try {
 				int size = password.size();
 				int numThreads = Math.min(size, 4);
@@ -45,10 +51,10 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 				List<String> ret = Arrays.asList(res);
 				return ret;
 			} catch (Exception e) {
+                //TODO: handle BE node failure if it happends during encrpytion/decrpytion 
 				throw new IllegalArgument(e.getMessage());
 			}
 		} else {
-//			Node be = NodeManager.getBeNode();
 			if (updateCurrentBeNodeIndex()) {
 				Node be = nodeList.get(nodeIndex);
 				if (be == null) {
@@ -66,22 +72,11 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 						return ret;
 					} catch (org.apache.thrift.transport.TTransportException e) {
 						System.out.println("Hash Transport Exception port#" + be.port);
-//						e.printStackTrace()
 						nodeList.remove(be);
                         synchronized(nodeIndex){
                             nodeIndex--;    
                         }
-//						updateCurrentBeNodeIndex();
 						break;
-////						System.out.print("port# " + be.port + e.getMessage());
-//						System.out.println("Hash Transport Exception port#" + be.port);
-//						nodeList.remove(be);
-//						if (nodeList.size() == 0) {
-//							break;
-//						} else {
-//							updateCurrentBeNodeIndex();
-//							be = nodeList.get(nodeIndex);
-//						}
 						
 					} finally {
 	                    if (be.getTransport() != null && be.getTransport().isOpen()) {
@@ -113,20 +108,8 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 				return ret;
 			} catch (Exception e) {
 				throw new IllegalArgument(e.getMessage());
-			}
-			
-			
+			}	
 		}
-		// try {
-		// List<String> ret = new ArrayList<>();
-		// for(String pw: password){
-		// String oneHash = BCrypt.hashpw(pw, BCrypt.gensalt(logRounds));
-		// ret.add(oneHash);
-		// }
-		// return ret;
-		// } catch (Exception e) {
-		// throw new IllegalArgument(e.getMessage());
-		// }
 	}
 	
 	private boolean updateCurrentBeNodeIndex() {
@@ -142,11 +125,16 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 	
 	public List<Boolean> checkPassword(List<String> password, List<String> hash)
 	throws IllegalArgument, org.apache.thrift.TException {
+        if(password == null || password.size() == 0){
+            throw new IllegalArgument("Password list cannot be null nor empty.");
+        }  
+        
+        if(hash == null || hash.size() == 0){
+            throw new IllegalArgument("Hash list cannot be null nor empty.");
+        }  
+        
 		Boolean[] res = new Boolean[password.size()];
 		if (isBeNode) {
-			// Node be = NodeManager.getBeNode();
-			// System.out.println("Current BE Node:" + be.hostname + be.port);
-			// return hashPasswordImpl(password, logRounds);
 			try {
 				int size = password.size();
 				int numThreads = Math.min(size, 4);
@@ -169,7 +157,6 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 				throw new IllegalArgument(e.getMessage());
 			}
 		} else {
-//			Node be = NodeManager.getBeNode();
 			if (updateCurrentBeNodeIndex()) {
 				Node be = nodeList.get(nodeIndex);
 				if (be == null) {
@@ -188,17 +175,6 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 					} catch (org.apache.thrift.transport.TTransportException e) {
 						System.out.println("Check Transport Exception port# " + be.port);
 						nodeList.remove(be);
-//						updateCurrentBeNodeIndex();
-//						e.printStackTrace();
-////						System.out.print("port# " + be.port + e.getMessage());
-//						System.out.println("Check Transport Exception port# " + be.port);
-//						nodeList.remove(be);
-//						if (nodeList.size() == 0) {
-//							break;
-//						} else {
-//							updateCurrentBeNodeIndex();
-//							be = nodeList.get(nodeIndex);
-//						}
 						break;
 					}  finally {
 	                    if (be.getTransport() != null && be.getTransport().isOpen()) {
@@ -231,50 +207,14 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 			} catch (Exception e) {
 				throw new IllegalArgument(e.getMessage());
 			}
-//			if (!be.getTransport().isOpen())
-//				be.getTransport().open();
-//			System.out.println("Current BE Node:" + be.hostname + be.port);
-//			System.out.println("Size: " + NodeManager.getMapSize());
-//			List<Boolean> ret = be.getClient().checkPassword(password, hash);
-//			be.setIsBusy(false);
-//			return ret;
-		}
-		// try {
-		// List<String> ret = new ArrayList<>();
-		// for(String pw: password){
-		// String oneHash = BCrypt.hashpw(pw, BCrypt.gensalt(logRounds));
-		// ret.add(oneHash);
-		// }
-		// return ret;
-		// } catch (Exception e) {
-		// throw new IllegalArgument(e.getMessage());
-		// }
 	}
+    }
 	
 	public void ping() {
-		
+		System.out.println("Received health check");
 	}
 	
-	
-
-//	public List<Boolean> checkPassword(List<String> password, List<String> hash)
-//			throws IllegalArgument, org.apache.thrift.TException {
-//		try {
-//			List<Boolean> ret = new ArrayList<>();
-//			for (int idx = 0; idx < password.size(); idx++) {
-//				String onePwd = password.get(idx);
-//				String oneHash = hash.get(idx);
-//				ret.add(BCrypt.checkpw(onePwd, oneHash));
-//			}
-//			return ret;
-//		} catch (Exception e) {
-//			throw new IllegalArgument(e.getMessage());
-//		}
-//	}
-	
-	
     private void checkPasswordImpl(List<String> passwords, List<String> hashes, Boolean[] res, int start, int end) {
-
         String password;
         String hash;
         for (int i = start; i < end; i++) {
@@ -291,11 +231,9 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 
 	public void storeBeNode(String hostname, int port) throws IllegalArgument, org.apache.thrift.TException {
 		try {
-			String nodeId = hostname + port;
 			Node node = new Node(hostname, port);
 			if (!nodeList.contains(node)) {
 				nodeList.add(node);
-//				NodeManager.addNode(hostname, port);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

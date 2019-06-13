@@ -20,7 +20,6 @@ public class Node {
 	int port;
 	BcryptService.Client client;
 	TTransport transport;
-	boolean isBusy;
 	
 	public Node(String hostname, int port) {
 		this.hostname = hostname;
@@ -30,7 +29,6 @@ public class Node {
 		transport = new TFramedTransport(sock);
 		TProtocol protocol = new TBinaryProtocol(transport);
 		client = new BcryptService.Client(protocol);
-		isBusy = false;
 	}
 
 	public TTransport getTransport() {
@@ -39,14 +37,6 @@ public class Node {
 
 	public BcryptService.Client getClient() {
 		return this.client;
-	}
-
-	public void setIsBusy(boolean busy) {
-		this.isBusy = busy;
-	}
-
-	public boolean getIsBusy() {
-		return this.isBusy;
 	}
 
 }
