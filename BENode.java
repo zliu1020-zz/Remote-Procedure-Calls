@@ -111,7 +111,7 @@ public class BENode {
 	    	}
 	        catch (Exception e){
                 log.warn("Exception caught during retry.");
-                retry(transport);
+                retry();
 	       }
 				
         }
