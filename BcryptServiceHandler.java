@@ -6,9 +6,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.Logger;
+
 import org.mindrot.jbcrypt.BCrypt;
 
 public class BcryptServiceHandler implements BcryptService.Iface {
+    static Logger log;
 
 	public boolean isBeNode;
 	private final ExecutorService service = Executors.newFixedThreadPool(4);
@@ -17,6 +21,9 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 
 	public BcryptServiceHandler(boolean isBeNode) {
 		this.isBeNode = isBeNode;
+        // initialize log4j
+	   BasicConfigurator.configure();
+	   log = Logger.getLogger(BcryptServiceHandler.class.getName());
 	}
 
 	public List<String> hashPassword(List<String> password, short logRounds)
@@ -57,21 +64,17 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 		} else {
 			if (updateCurrentBeNodeIndex()) {
 				Node be = nodeList.get(nodeIndex);
-				if (be == null) {
-					System.out.println("help");
-					return null;
-				}
 				while (be != null) {
 					try {			
 						Node tmp = new Node(be.hostname, be.port);
 						if (!tmp.getTransport().isOpen()) {
 							tmp.getTransport().open();
 						}
-						System.out.println("Current BE Node:" + tmp.hostname + tmp.port);
+						log.info("Hash Password - FE assigns work to BE Node:" + tmp.hostname + " " + tmp.port);
 						List<String> ret = tmp.getClient().hashPassword(password, logRounds);
 						return ret;
 					} catch (org.apache.thrift.transport.TTransportException e) {
-						System.out.println("Hash Transport Exception port#" + be.port);
+						log.warn("Hash Password - Exception from BE Node:" + be.hostname + " " + be.port + ". Removing the corrupted BE node.");
 						nodeList.remove(be);
                         synchronized(nodeIndex){
                             nodeIndex--;    
@@ -87,7 +90,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 			}
 			
 			// FE should handle the work
-			System.out.println("Hash FE handles the work");
+			log.info("Hash Password - FE is taking over the work.");
 			try {
 				int size = password.size();
 				int numThreads = Math.min(size, 4);
@@ -159,21 +162,17 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 		} else {
 			if (updateCurrentBeNodeIndex()) {
 				Node be = nodeList.get(nodeIndex);
-				if (be == null) {
-					System.out.println("help");
-					return null;
-				}
 				while (be != null) {
 					try {
 						Node tmp = new Node(be.hostname, be.port);
 						if (!tmp.getTransport().isOpen()) {
 							tmp.getTransport().open();
 						}
-						System.out.println("Current BE Node:" + tmp.hostname + tmp.port);
+						log.info("Check Password - FE assigns work to BE Node:" + tmp.hostname + " " + tmp.port);
 						List<Boolean> ret = tmp.getClient().checkPassword(password, hash);
 						return ret;
 					} catch (org.apache.thrift.transport.TTransportException e) {
-						System.out.println("Check Transport Exception port# " + be.port);
+						log.warn("Check Password - Exception from BE Node:" + be.hostname + " " + be.port + ". Removing the corrupted BE node.");
 						nodeList.remove(be);
 						break;
 					}  finally {
@@ -185,7 +184,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 			}
 			
 			// FE should handle the work
-			System.out.println("Check FE handles the work");
+			log.info("Check Password - FE is taking over the work.");
 			try {
 				int size = password.size();
 				int numThreads = Math.min(size, 4);
@@ -211,7 +210,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
     }
 	
 	public void pingFrom(String host, int port) {
-		System.out.println("Received health check from BE node located at host = " + host + " port = " + port);
+		log.info("Received health check from BE node located at host = " + host + " port = " + port);
 	}
 	
     private void checkPasswordImpl(List<String> passwords, List<String> hashes, Boolean[] res, int start, int end) {

@@ -84,20 +84,26 @@ public class BENode {
                 }
                 
                 // run the actual health check indefinitely
-                int retry_count = 0;
+                Integer retry_count = 0;
+                Boolean isBECorrupted = false;
 			    while(true) {
 			    	try {
 				        Thread.sleep(7000);
 		    	        client.pingFrom(hostBE, portBE);
 	    	        }
 	    	        catch (Exception e){
+                         log.info("isBECorrupted = " + isBECorrupted);
                          log.warn("Exception caught during health check. The connect b/w BE and FE is likely corrupted.");
-                         retry(retry_count, transport);       
+                         retry(retry_count, transport, isBECorrupted);       
 	    	        }
+                    if(isBECorrupted){
+                        log.info("isBECorrupted = " + isBECorrupted + ". Terminating health check.");
+                        break;
+                    }
 				}
 	    }
         
-        public void retry(int retry_count, TTransport transport){
+        public void retry(Integer retry_count, TTransport transport, Boolean isBECorrupted){
 			try {
                 log.info("Trying to re-connect to FE. The retry counter is: " + retry_count);
                 Thread.sleep(2000); 
@@ -108,9 +114,11 @@ public class BENode {
 	        catch (Exception e){
                 if(retry_count < 10){
                     retry_count += 1;
-                    retry(retry_count, transport);
+                    retry(retry_count, transport, isBECorrupted);
                 }else{
                     log.warn("BE has exhausted all retry attempts and failed to re-establish the connection to FE.");
+                    isBECorrupted = true;
+                    log.info("Set isBECorrupted to " + isBECorrupted);
                 }        
 	       }
 				
