@@ -80,7 +80,7 @@ public class BENode {
                     transport.open();			    
                     client.storeBeNode(hostBE, portBE);
                 }catch(Exception e) {
-    	            e.printStackTrace();
+                	log.warn("Cannot open the transport. FE does not exist.");
                 }
                 
                 // run the actual health check indefinitely
