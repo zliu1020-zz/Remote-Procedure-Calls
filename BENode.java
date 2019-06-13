@@ -84,42 +84,34 @@ public class BENode {
                 }
                 
                 // run the actual health check indefinitely
-                Integer retry_count = 0;
-                Boolean isBECorrupted = false;
 			    while(true) {
 			    	try {
-				        Thread.sleep(7000);
+				        Thread.sleep(2000);
 		    	        client.pingFrom(hostBE, portBE);
 	    	        }
 	    	        catch (Exception e){
-                         log.info("isBECorrupted = " + isBECorrupted);
                          log.warn("Exception caught during health check. The connect b/w BE and FE is likely corrupted.");
-                         retry(retry_count, transport, isBECorrupted);       
+                         retry();       
 	    	        }
-                    if(isBECorrupted){
-                        log.info("isBECorrupted = " + isBECorrupted + ". Terminating health check.");
-                        break;
-                    }
 				}
 	    }
         
-        public void retry(Integer retry_count, TTransport transport, Boolean isBECorrupted){
+        public void retry(){
 			try {
-                log.info("Trying to re-connect to FE. The retry counter is: " + retry_count);
+                log.info("Trying to re-connect to FE.");
                 Thread.sleep(2000); 
-                transport.open();			    
+                // establish connection to FE node 
+	            TSocket sock = new TSocket(hostFE, portFE);
+                TTransport transport = new TFramedTransport(sock);    
+                TProtocol protocol = new TBinaryProtocol(transport);  
+                BcryptService.Client client = new BcryptService.Client(protocol);	
+                transport.open();
                 client.storeBeNode(hostBE, portBE);
                 transport.close(); 
 	    	}
 	        catch (Exception e){
-                if(retry_count < 10){
-                    retry_count += 1;
-                    retry(retry_count, transport, isBECorrupted);
-                }else{
-                    log.warn("BE has exhausted all retry attempts and failed to re-establish the connection to FE.");
-                    isBECorrupted = true;
-                    log.info("Set isBECorrupted to " + isBECorrupted);
-                }        
+                log.warn("Exception caught during retry.");
+                retry(transport);
 	       }
 				
         }
