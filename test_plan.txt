@@ -12,6 +12,10 @@
     should finish executing without errors, BEs are expected to connect to FE once it is up. FE is expected to allocate work correctly to BEs.
 6. 1 FE, 2 BEs, 1 Client with 20 threads all on the same host, add the second BE after the encrpytion process has started:
     should finish executing without errors, the second BE is expected to connect to FE. FE is expected to allocate work correctly to both BEs.
-7. Test password array of size 0, should get error.
-8. Test password array with empty one in it, should not get error.
-9. Test malformed hash, should get False as the check result.
+7. 1 BE
+	Be should always try to connect to FE.  
+8. Test password array of size 0, should get error.
+9. Test password array with empty one in it, should not get error.
+10. Test malformed hash, should get False as the check result.
+
+	
