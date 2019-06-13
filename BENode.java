@@ -23,56 +23,45 @@ public class BENode {
     static Logger log;
 
     public static void main(String [] args) throws Exception {
-	if (args.length != 3) {
-	    System.err.println("Usage: java BENode FE_host FE_port BE_port");
-	    System.exit(-1);
-	}
+	   if (args.length != 3) {
+	       System.err.println("Usage: java BENode FE_host FE_port BE_port");
+	       System.exit(-1);
+	   }
 
-	// initialize log4j
-	BasicConfigurator.configure();
-	log = Logger.getLogger(BENode.class.getName());
+	   // initialize log4j
+	   BasicConfigurator.configure();
+	   log = Logger.getLogger(BENode.class.getName());
 
-	String hostFE = args[0];
-	String hostBE = InetAddress.getLocalHost().getHostName();
-	
-	int portFE = Integer.parseInt(args[1]);
-	int portBE = Integer.parseInt(args[2]);
-	log.info("Launching BE node on port " + portBE + " at host " + getHostName());
-	
-    
-	TSocket sock = new TSocket(hostFE, portFE);
-    TTransport transport = new TFramedTransport(sock);    
-    TProtocol protocol = new TBinaryProtocol(transport);  
-    BcryptService.Client client = new BcryptService.Client(protocol);
-    try {
-        transport.open();			    
-        client.storeBeNode(hostBE, portBE);
-        transport.close();
-    }catch(Exception e) {
-    	e.printStackTrace();
+        // parse CLI arguments    
+	   String hostFE = args[0];
+	   String hostBE = getHostName();
+	   int portFE = Integer.parseInt(args[1]);
+	   int portBE = Integer.parseInt(args[2]);
+	   log.info("Launching BE node on port " + portBE + " at host " + getHostName());
+        
+        // start the health check thread
+        Thread healthCheckThread = new Thread(new HealthCheckRunnable(hostFE, hostBE, portFE, portBE));		
+        healthCheckThread.start();	
+        
+        // serve BE node on startup
+        BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
+        TNonblockingServerSocket socket = new TNonblockingServerSocket(portBE);
+        THsHaServer.Args sargs = new THsHaServer.Args(socket);
+	    sargs.protocolFactory(new TBinaryProtocol.Factory());
+        sargs.transportFactory(new TFramedTransport.Factory());
+	    sargs.processorFactory(new TProcessorFactory(processor));
+	    THsHaServer server = new THsHaServer(sargs);
+	    server.serve();
     }
     
-	Thread thread = new Thread(new ConnectionThread(hostFE, hostBE, portFE, portBE));		
-    thread.start();	
-    }
-
-    static String getHostName()
-    {
-	try {
-	    return InetAddress.getLocalHost().getHostName();
-	} catch (Exception e) {
-	    return "localhost";
-	}
-    }
-    
-    static class ConnectionThread implements Runnable {
+    static class HealthCheckRunnable implements Runnable {
     	private static String hostFE;
     	private static String hostBE;
     	private static int portFE;
     	private static int portBE;
     	private static BcryptService.Client client;
 
-    	public ConnectionThread (String hostFE, String hostBE, int portFE, int portBE) {
+    	public HealthCheckRunnable (String hostFE, String hostBE, int portFE, int portBE) {
     		this.hostFE = hostFE;
     		this.hostBE = hostBE;
     		this.portFE = portFE;
@@ -80,52 +69,59 @@ public class BENode {
     	}
 
 	    public void run(){
-			// contact to the FE note on startup
-	       	try {
-	       		BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
-	       		TNonblockingServerSocket socket = new TNonblockingServerSocket(portBE);
-	       		THsHaServer.Args sargs = new THsHaServer.Args(socket);
-	       		sargs.protocolFactory(new TBinaryProtocol.Factory());
-	       		sargs.transportFactory(new TFramedTransport.Factory());
-	       		sargs.processorFactory(new TProcessorFactory(processor));
-	       		THsHaServer server = new THsHaServer(sargs);
-	       		server.serve();
+                // establish connection to FE node 
+	            TSocket sock = new TSocket(hostFE, portFE);
+                TTransport transport = new TFramedTransport(sock);    
+                TProtocol protocol = new TBinaryProtocol(transport);  
+                BcryptService.Client client = new BcryptService.Client(protocol);
+        
+                // write BE node into the array of available nodes    
+                try {
+                    transport.open();			    
+                    client.storeBeNode(hostBE, portBE);
+                }catch(Exception e) {
+    	            e.printStackTrace();
+                }
+                
+                // run the actual health check indefinitely
+                int retry_count = 0;
 			    while(true) {
-			    	heartbeat();
+			    	try {
+				        Thread.sleep(7000);
+		    	        client.pingFrom(hostBE, portBE);
+	    	        }
+	    	        catch (Exception e){
+                         log.warn("Exception caught during health check. The connect b/w BE and FE is likely corrupted.");
+                         retry(retry_count, transport);       
+	    	        }
 				}
-			}
-			catch (Exception x) {
-			    x.printStackTrace();
-			} 
 	    }
-
-	    private void heartbeat() {
-	    	try {
-				Thread.sleep(5 * 1000);
-		    	client.ping();
+        
+        public void retry(int retry_count, TTransport transport){
+			try {
+                log.info("Trying to re-connect to FE. The retry counter is: " + retry_count);
+                Thread.sleep(2000); 
+                transport.open();			    
+                client.storeBeNode(hostBE, portBE);
+                transport.close(); 
 	    	}
-	    	catch (Exception e)
-	    	{
-	   			establishNewConnection();
-	    	}
-	    }
-
-	    private void establishNewConnection() {
-	    	// contact to the FE note on startup
-	       	try {
-				Thread.sleep(1 * 1000);
-				BcryptService.Processor processor = new BcryptService.Processor<BcryptService.Iface>(new BcryptServiceHandler(true));
-				TNonblockingServerSocket socket = new TNonblockingServerSocket(portBE);
-				THsHaServer.Args sargs = new THsHaServer.Args(socket);
-				sargs.protocolFactory(new TBinaryProtocol.Factory());
-				sargs.transportFactory(new TFramedTransport.Factory());
-				sargs.processorFactory(new TProcessorFactory(processor));
-				THsHaServer server = new THsHaServer(sargs);
-				server.serve();
-			}
-			catch (Exception x) {
-			    establishNewConnection();
-			} 
-	    }
+	        catch (Exception e){
+                if(retry_count < 10){
+                    retry_count += 1;
+                    retry(retry_count, transport);
+                }else{
+                    log.warn("BE has exhausted all retry attempts and failed to re-establish the connection to FE.");
+                }        
+	       }
+				
+        }
 	}
+    
+    static String getHostName(){
+	   try {
+	       return InetAddress.getLocalHost().getHostName();
+	   } catch (Exception e) {
+           return "localhost";
+	   }
+    }
 }

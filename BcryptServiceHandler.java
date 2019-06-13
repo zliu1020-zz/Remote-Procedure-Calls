@@ -210,8 +210,8 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 	}
     }
 	
-	public void ping() {
-		System.out.println("Received health check");
+	public void pingFrom(String host, int port) {
+		System.out.println("Received health check from BE node located at host = " + host + " port = " + port);
 	}
 	
     private void checkPasswordImpl(List<String> passwords, List<String> hashes, Boolean[] res, int start, int end) {
