@@ -1,0 +1,17 @@
+1. 1 FE, 1 BE, 1 single-threaded Client all on the same host:
+    should finish executing without errors.
+1. 1 FE, 3 BE, 1 single-threaded Client all on the same host:
+    should finish executing without errors, FE will round robin work to two BEs.
+2. 1 FE, 1 BE, 1 single-threaded Client all on the same host, kill the BE as the encryption starts:
+    should finish executing without errors, FE will take over all the work.
+3. 1 FE, 3 BE, 1 Client with 20 threads all on the same host, kill one of the BE as the encryption starts:
+    should finish executing without errors, FE will take over the work and the second BE shouldn't be affected.
+4. 1 FE, 3 BE, 1 Client with 20 threads, FE is on eceubuntu1, BEs are on eceubuntu2, client is on ecetesla1:
+    should finish executing without errors.
+5. 1 FE, 2 BEs, 1 Client with 20 threads all on the same host, start BEs before FE:
+    should finish executing without errors, BEs are expected to connect to FE once it is up. FE is expected to allocate work correctly to BEs.
+6. 1 FE, 2 BEs, 1 Client with 20 threads all on the same host, add the second BE after the encrpytion process has started:
+    should finish executing without errors, the second BE is expected to connect to FE. FE is expected to allocate work correctly to both BEs.
+7. Test password array of size 0, should get error.
+8. Test password array with empty one in it, should not get error.
+9. Test malformed hash, should get False as the check result.
