@@ -21,14 +21,48 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 
 	public BcryptServiceHandler(boolean isBeNode) {
 		this.isBeNode = isBeNode;
-        // initialize log4j
-	   BasicConfigurator.configure();
-	   log = Logger.getLogger(BcryptServiceHandler.class.getName());
+	    BasicConfigurator.configure();
+	    log = Logger.getLogger(BcryptServiceHandler.class.getName());
 	}
+    
+    public List<String> concurrentHashing(List<String> password, short logRounds) throws Exception{
+        String[] res = new String[password.size()];
+        
+        int size = password.size();
+        int numThreads = Math.min(size, 4);
+        int chunkSize = size / numThreads;
+        CountDownLatch latch = new CountDownLatch(numThreads);
+        for (int i = 0; i < numThreads; i++) {
+            int start = i * chunkSize;
+            int end = i == numThreads - 1 ? size : (i + 1) * chunkSize;
+            service.execute(new HashPasswordRunnable(password, logRounds, res, start, end, latch));
+        }
+        latch.await();
+        return Arrays.asList(res);
+    }
+    
+    public List<Boolean> concurrentChecking(List<String> password, List<String> hash) throws Exception{
+        Boolean[] res = new Boolean[password.size()];
+        
+        int size = password.size();
+        int numThreads = Math.min(size, 4);
+        int chunkSize = size / numThreads;
+        CountDownLatch latch = new CountDownLatch(numThreads);
+        for (int i = 0; i < numThreads; i++) {
+            int start = i * chunkSize;
+            int end = i == numThreads - 1 ? size : (i + 1) * chunkSize;
+            service.execute(new CheckPasswordRunnable(password, hash, res, start, end, latch));
+        }
+        latch.await();
+
+        List<Boolean> ret = Arrays.asList(res);
+        return ret;
+    }
+    
 
 	public List<String> hashPassword(List<String> password, short logRounds)
 			throws IllegalArgument, org.apache.thrift.TException {
-                
+        // Error handling        
         if(password == null || password.size() == 0){
             throw new IllegalArgument("Password list cannot be null nor empty.");
         }  
@@ -36,86 +70,48 @@ public class BcryptServiceHandler implements BcryptService.Iface {
         if(logRounds < 4 || logRounds > 16){
             throw new IllegalArgument("Logrounds cannot be null nor out of range. Expected range is 4 - 16.");
         }  
-                
-		String[] res = new String[password.size()];
 		if (isBeNode) {
 			try {
-				int size = password.size();
-				int numThreads = Math.min(size, 4);
-				int chunkSize = size / numThreads;
-				CountDownLatch latch = new CountDownLatch(numThreads);
-				if (size > 1) {
-					for (int i = 0; i < numThreads; i++) {
-						int startInd = i * chunkSize;
-						int endInd = i == numThreads - 1 ? size : (i + 1) * chunkSize;
-						service.execute(new MultiThreadHash(password, logRounds, res, startInd, endInd, latch));
-					}
-					latch.await();
-				} else {
-					hashPasswordImpl(password, logRounds, res, 0, password.size());
-				}
-
-				List<String> ret = Arrays.asList(res);
-				return ret;
+				return concurrentHashing(password, logRounds);
 			} catch (Exception e) {
-                //TODO: handle BE node failure if it happends during encrpytion/decrpytion 
 				throw new IllegalArgument(e.getMessage());
 			}
 		} else {
-			if (updateCurrentBeNodeIndex()) {
+            // Round Robin - get the next available and update index
+			if (isAnyBENodeAvailable()) {
 				Node be = nodeList.get(nodeIndex);
-				while (be != null) {
-					try {			
-						Node tmp = new Node(be.hostname, be.port);
-						if (!tmp.getTransport().isOpen()) {
-							tmp.getTransport().open();
-						}
-						log.info("Hash Password - FE assigns work to BE Node:" + tmp.hostname + " " + tmp.port);
-						List<String> ret = tmp.getClient().hashPassword(password, logRounds);
-						return ret;
-					} catch (org.apache.thrift.transport.TTransportException e) {
-						log.warn("Hash Password - Exception from BE Node:" + be.hostname + " " + be.port + ". Removing the corrupted BE node.");
-						nodeList.remove(be);
-                        synchronized(nodeIndex){
-                            nodeIndex--;    
-                        }
-						break;
+                Node n = new Node(be.hostname, be.port);
+                try {			
+				    log.info("Hash Password - FE assigns work to BE Node:" + be.hostname + " " + be.port);
+                    if (!n.getTransport().isOpen()) {
+                        n.getTransport().open();
+                    }
+				    return n.getClient().hashPassword(password, logRounds);
+				} catch (org.apache.thrift.transport.TTransportException e) {
+				    log.warn("Hash Password - Exception from BE Node:" + be.hostname + " " + be.port + ". Removing the corrupted BE node.");
+				    nodeList.remove(be);
+                    synchronized(nodeIndex){
+                        nodeIndex--;    
+                    }
 						
-					} finally {
-	                    if (be.getTransport() != null && be.getTransport().isOpen()) {
-	                    	be.getTransport().close();
-	                    }
-	                }
-				}
+				} finally {
+	               if (n != null && n.getTransport() != null && n.getTransport().isOpen()) {
+	                   n.getTransport().close();
+	               }
+	            }
 			}
 			
 			// FE should handle the work
 			log.info("Hash Password - FE is taking over the work.");
 			try {
-				int size = password.size();
-				int numThreads = Math.min(size, 4);
-				int chunkSize = size / numThreads;
-				CountDownLatch latch = new CountDownLatch(numThreads);
-				if (size > 1) {
-					for (int i = 0; i < numThreads; i++) {
-						int startInd = i * chunkSize;
-						int endInd = i == numThreads - 1 ? size : (i + 1) * chunkSize;
-						service.execute(new MultiThreadHash(password, logRounds, res, startInd, endInd, latch));
-					}
-					latch.await();
-				} else {
-					hashPasswordImpl(password, logRounds, res, 0, password.size());
-				}
-
-				List<String> ret = Arrays.asList(res);
-				return ret;
+				return concurrentHashing(password, logRounds);
 			} catch (Exception e) {
 				throw new IllegalArgument(e.getMessage());
 			}	
 		}
 	}
 	
-	private boolean updateCurrentBeNodeIndex() {
+	private boolean isAnyBENodeAvailable() {
 		if (nodeList.size() == 0) {
 			return false;
 		} else {
@@ -135,78 +131,41 @@ public class BcryptServiceHandler implements BcryptService.Iface {
         if(hash == null || hash.size() == 0){
             throw new IllegalArgument("Hash list cannot be null nor empty.");
         }  
-        
-		Boolean[] res = new Boolean[password.size()];
+
 		if (isBeNode) {
 			try {
-				int size = password.size();
-				int numThreads = Math.min(size, 4);
-				int chunkSize = size / numThreads;
-				CountDownLatch latch = new CountDownLatch(numThreads);
-				if (size > 1) {
-					for (int i = 0; i < numThreads; i++) {
-						int startInd = i * chunkSize;
-						int endInd = i == numThreads - 1 ? size : (i + 1) * chunkSize;
-						service.execute(new MultiThreadCheck(password, hash, res, startInd, endInd, latch));
-					}
-					latch.await();
-				} else {
-					checkPasswordImpl(password, hash, res, 0, password.size());
-				}
-
-				List<Boolean> ret = Arrays.asList(res);
-				return ret;
+				return concurrentChecking(password, hash);
 			} catch (Exception e) {
 				throw new IllegalArgument(e.getMessage());
 			}
 		} else {
-			if (updateCurrentBeNodeIndex()) {
+			if (isAnyBENodeAvailable()) {
 				Node be = nodeList.get(nodeIndex);
-				while (be != null) {
-					try {
-						Node tmp = new Node(be.hostname, be.port);
-						if (!tmp.getTransport().isOpen()) {
-							tmp.getTransport().open();
-						}
-						log.info("Check Password - FE assigns work to BE Node:" + tmp.hostname + " " + tmp.port);
-						List<Boolean> ret = tmp.getClient().checkPassword(password, hash);
-						return ret;
-					} catch (org.apache.thrift.transport.TTransportException e) {
-						log.warn("Check Password - Exception from BE Node:" + be.hostname + " " + be.port + ". Removing the corrupted BE node.");
-						nodeList.remove(be);
-						break;
-					}  finally {
-	                    if (be.getTransport() != null && be.getTransport().isOpen()) {
-	                    	be.getTransport().close();
-	                    }
-	                }
-				}
+                Node n = new Node(be.hostname, be.port);
+                try {
+				    if (!n.getTransport().isOpen()) {
+				        n.getTransport().open();
+				    }
+				    log.info("Check Password - FE assigns work to BE Node:" + be.hostname + " " + be.port);
+				    return n.getClient().checkPassword(password, hash);
+				} catch (org.apache.thrift.transport.TTransportException e) {
+				    log.warn("Check Password - Exception from BE Node:" + be.hostname + " " + be.port + ". Removing the corrupted BE node.");
+				    nodeList.remove(be);
+				} finally {
+	               if (n != null && n.getTransport() != null && n.getTransport().isOpen()) {
+	                   n.getTransport().close();
+	               }
+	           }
 			}
 			
 			// FE should handle the work
 			log.info("Check Password - FE is taking over the work.");
 			try {
-				int size = password.size();
-				int numThreads = Math.min(size, 4);
-				int chunkSize = size / numThreads;
-				CountDownLatch latch = new CountDownLatch(numThreads);
-				if (size > 1) {
-					for (int i = 0; i < numThreads; i++) {
-						int startInd = i * chunkSize;
-						int endInd = i == numThreads - 1 ? size : (i + 1) * chunkSize;
-						service.execute(new MultiThreadCheck(password, hash, res, startInd, endInd, latch));
-					}
-					latch.await();
-				} else {
-					checkPasswordImpl(password, hash, res, 0, password.size());
-				}
-
-				List<Boolean> ret = Arrays.asList(res);
-				return ret;
+				return concurrentChecking(password, hash);
 			} catch (Exception e) {
 				throw new IllegalArgument(e.getMessage());
 			}
-	}
+	   }
     }
 	
 	public void pingFrom(String host, int port) {
@@ -250,7 +209,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 		}
 	}
 
-	class MultiThreadHash implements Runnable {
+	class HashPasswordRunnable implements Runnable {
 		private List<String> password;
 		private short logRounds;
 		private String[] res;
@@ -258,7 +217,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 		private int end;
 		private CountDownLatch latch;
 
-		public MultiThreadHash(List<String> passwords, short logRounds, String[] res, int start, int end,
+		public HashPasswordRunnable(List<String> passwords, short logRounds, String[] res, int start, int end,
 				CountDownLatch latch) {
 			this.logRounds = logRounds;
 			this.password = passwords;
@@ -275,7 +234,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 		}
 	}
 	
-    class MultiThreadCheck implements Runnable {
+    class CheckPasswordRunnable implements Runnable {
         private List<String> password;
         private List<String> hash;
         private Boolean[] res;
@@ -284,7 +243,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
         CountDownLatch latch;
 
 
-        public MultiThreadCheck(List<String> passwords, List<String> hashes, Boolean[] res, int start, int end, CountDownLatch latch) {
+        public CheckPasswordRunnable(List<String> passwords, List<String> hashes, Boolean[] res, int start, int end, CountDownLatch latch) {
             this.password = passwords;
             this.hash = hashes;
             this.res = res;
