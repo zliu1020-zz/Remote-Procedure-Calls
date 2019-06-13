@@ -15,7 +15,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
     static Logger log;
 
 	public boolean isBeNode;
-	private final ExecutorService service = Executors.newFixedThreadPool(4);
+	private final ExecutorService executorService = Executors.newFixedThreadPool(4);
 	private List<Node> nodeList = Collections.synchronizedList(new ArrayList<Node>());
 	private Integer nodeIndex = -1;
 
@@ -27,7 +27,6 @@ public class BcryptServiceHandler implements BcryptService.Iface {
     
     public List<String> concurrentHashing(List<String> password, short logRounds) throws Exception{
         String[] res = new String[password.size()];
-        
         int size = password.size();
         int numThreads = Math.min(size, 4);
         int chunkSize = size / numThreads;
@@ -35,15 +34,15 @@ public class BcryptServiceHandler implements BcryptService.Iface {
         for (int i = 0; i < numThreads; i++) {
             int start = i * chunkSize;
             int end = i == numThreads - 1 ? size : (i + 1) * chunkSize;
-            service.execute(new HashPasswordRunnable(password, logRounds, res, start, end, latch));
+            executorService.execute(new HashPasswordRunnable(password, logRounds, res, start, end, latch));
         }
+        
         latch.await();
         return Arrays.asList(res);
     }
     
     public List<Boolean> concurrentChecking(List<String> password, List<String> hash) throws Exception{
-        Boolean[] res = new Boolean[password.size()];
-        
+        Boolean[] res = new Boolean[password.size()];  
         int size = password.size();
         int numThreads = Math.min(size, 4);
         int chunkSize = size / numThreads;
@@ -51,12 +50,10 @@ public class BcryptServiceHandler implements BcryptService.Iface {
         for (int i = 0; i < numThreads; i++) {
             int start = i * chunkSize;
             int end = i == numThreads - 1 ? size : (i + 1) * chunkSize;
-            service.execute(new CheckPasswordRunnable(password, hash, res, start, end, latch));
+            executorService.execute(new CheckPasswordRunnable(password, hash, res, start, end, latch));
         }
         latch.await();
-
-        List<Boolean> ret = Arrays.asList(res);
-        return ret;
+        return Arrays.asList(res);
     }
     
 
@@ -171,21 +168,6 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 	public void pingFrom(String host, int port) {
 		log.info("Received health check from BE node located at host = " + host + " port = " + port);
 	}
-	
-    private void checkPasswordImpl(List<String> passwords, List<String> hashes, Boolean[] res, int start, int end) {
-        String password;
-        String hash;
-        for (int i = start; i < end; i++) {
-            password = passwords.get(i);
-            hash = hashes.get(i);
-            try{
-                res[i] = (BCrypt.checkpw(password, hash));
-            } catch (Exception e){
-                res[i] = false;
-            }
-
-        }
-    }
 
 	public void storeBeNode(String hostname, int port) throws IllegalArgument, org.apache.thrift.TException {
 		try {
@@ -194,17 +176,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 				nodeList.add(node);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			throw new IllegalArgument(e.getMessage());
-		}
-	}
-
-	private void hashPasswordImpl(List<String> passwords, short logRounds, String[] res, int start, int end){
-		try {
-			for (int i = start; i < end; i++) {
-				res[i] = BCrypt.hashpw(passwords.get(i), BCrypt.gensalt(logRounds));
-			}
-		} catch (Exception e) {
+            log.error("Failed to insert BE node. Msg: " + e.getMessage());
 			e.printStackTrace();
 		}
 	}
@@ -229,7 +201,14 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 
 		@Override
 		public void run() {
-			hashPasswordImpl(password, logRounds, res, start, end);
+			try {
+			    for (int i = start; i < end; i++) {
+				    res[i] = BCrypt.hashpw(password.get(i), BCrypt.gensalt(logRounds));
+			    }
+		    } catch (Exception e) {
+                 log.error("Failed to hash password. Msg: " + e.getMessage());
+			     e.printStackTrace();
+		    }
 			latch.countDown();
 		}
 	}
@@ -254,7 +233,14 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 
         @Override
         public void run() {
-            checkPasswordImpl(password, hash, res, start, end);
+            for (int i = start; i < end; i++) {
+                try{
+                    res[i] = BCrypt.checkpw(password.get(i), hash.get(i));
+                } catch (Exception e){
+                    log.warn("Failed to check password against hash. Will record the result as FALSE. Msg: " + e.getMessage());
+                    res[i] = false;
+                }
+            }   
             latch.countDown();
         }
     }
