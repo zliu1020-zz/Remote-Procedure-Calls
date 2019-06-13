@@ -78,12 +78,12 @@ public class Client {
 
                 List<String> password = new ArrayList<>();
                 password.add(args[2]);
-//                for (int j = 0; j < 50; j++) {
-//                    password.add("test" + j);
-//                }
-//                List<String> hash = client.hashPassword(password, (short) 10);
-//                System.out.println("Hash: " + hash.get(0) + ", " + hash.get(1));
-//                System.out.println("Positive check: " + client.checkPassword(password, hash));
+                for (int j = 0; j < 50; j++) {
+                    password.add("test" + j);
+                }
+                List<String> hash = client.hashPassword(password, (short) 10);
+                System.out.println("Hash: " + hash.get(0) + ", " + hash.get(1));
+                System.out.println("Positive check: " + client.checkPassword(password, hash));
                 
     // check for one password
 //                List<String> hash = client.hashPassword(password, (short)10);
