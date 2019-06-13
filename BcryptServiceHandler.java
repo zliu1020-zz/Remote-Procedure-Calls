@@ -13,7 +13,7 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 	public boolean isBeNode;
 	private final ExecutorService service = Executors.newFixedThreadPool(4);
 	private List<Node> nodeList = Collections.synchronizedList(new ArrayList<Node>());
-	private int nodeIndex = -1;
+	private Integer nodeIndex = -1;
 
 	public BcryptServiceHandler(boolean isBeNode) {
 		this.isBeNode = isBeNode;
@@ -68,7 +68,9 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 						System.out.println("Hash Transport Exception port#" + be.port);
 //						e.printStackTrace()
 						nodeList.remove(be);
-						nodeIndex--;
+                        synchronized(nodeIndex){
+                            nodeIndex--;    
+                        }
 //						updateCurrentBeNodeIndex();
 						break;
 ////						System.out.print("port# " + be.port + e.getMessage());
@@ -131,7 +133,9 @@ public class BcryptServiceHandler implements BcryptService.Iface {
 		if (nodeList.size() == 0) {
 			return false;
 		} else {
-			nodeIndex  = (nodeIndex + 1) % nodeList.size();
+            synchronized(nodeIndex){
+                nodeIndex  = (nodeIndex + 1) % nodeList.size();   
+            }
 			return true;
 		}
 	}
