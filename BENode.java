@@ -87,9 +87,16 @@ public class BENode {
 			    while(true) {
 			    	try {
 				        Thread.sleep(2000);
+//			            sock = new TSocket(hostFE, portFE);
+//		                transport = new TFramedTransport(sock);    
+//		                protocol = new TBinaryProtocol(transport);  
+//		                client = new BcryptService.Client(protocol);
+				        if (!transport.isOpen())
+				        	transport.open();
 		    	        client.pingFrom(hostBE, portBE);
 	    	        }
 	    	        catch (Exception e){
+	    	        	 e.printStackTrace();
                          log.warn("Exception caught during health check. The connect b/w BE and FE is likely corrupted.");
                          retry();       
 	    	        }
@@ -111,7 +118,7 @@ public class BENode {
 	    	}
 	        catch (Exception e){
                 log.warn("Exception caught during retry.");
-                retry(transport);
+                retry();
 	       }
 				
         }
